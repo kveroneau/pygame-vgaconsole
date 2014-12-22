@@ -13,9 +13,10 @@ class SmileApp(vgaconsole.VGAConsole):
     def draw_player(self):
         self.setxy(self.loc[0], self.loc[1], 2)
     def move_player(self, row, col):
-        self.setxy(self.loc[0], self.loc[1], 0)
-        self.loc = [row,col]
-        self.draw_player()
+        if self.getxy(row,col)[0] == 0:
+            self.setxy(self.loc[0], self.loc[1], 0)
+            self.loc = [row,col]
+            self.draw_player()
     def handle_event(self, e):
         handler = getattr(self, 'handle_%s' % self.state, None)
         if handler:
@@ -24,6 +25,7 @@ class SmileApp(vgaconsole.VGAConsole):
         if e.type == vgaconsole.KEYDOWN:
             if e.key == 13:
                 self.clear_window(10,10,10,40)
+                self.bload('smile.map')
                 self.draw_player()
                 self.state = 'game'
     def handle_game(self, e):

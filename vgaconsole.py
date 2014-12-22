@@ -203,6 +203,12 @@ class VGAConsole(object):
                 self.pos = [row,col]
         self.vgabuf.seek((80*row+col)*2)
         self.vgabuf.write(chr(c)+chr(fg|bg<<4))
+    def getxy(self, row, col):
+        self.vgabuf.seek((80*row+col)*2)
+        c = ord(self.vgabuf.read_byte())
+        attr = ord(self.vgabuf.read_byte())
+        fg,bg = attr&0xf, (attr&0xf0)>>4
+        return (c,fg,bg)
     def type(self, c):
         if c == 10:
             self.pos[1] = self.wrap[1]
