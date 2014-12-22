@@ -1,7 +1,7 @@
 import pygame, sys
 from pygame.locals import *
 import mmap
-from struct import unpack
+from struct import unpack, pack
 
 clock = pygame.time.Clock()
 
@@ -108,6 +108,39 @@ class VGAConsole(object):
         self.render_cursor()
         self.render_mcursor()
         self.stdio = TextBuffer(self)
+    def bload(self, filename):
+        success = True
+        with open(filename,'rb') as f:
+            hdr = unpack('B', f.read(1))
+            if hdr[0] != 0xfd:
+                print "Failed to load file: Invalid header."
+                success = False            
+            hdr = unpack('HHH', f.read(6))
+            if hdr[0] != 0xb800:
+                print "Invalid binary memory dump: %s" % hex(hdr[0])
+                success = False
+            if success:
+                self.vgabuf.seek(hdr[1])
+                self.vgabuf.write(f.read(hdr[2]))
+        if not success:
+            pygame.quit()
+            sys.exit()
+    def flatten(self):
+        self.vgabuf.seek(0)
+        for c in range(0,2000):
+            self.vgabuf.read_byte()
+            aa = self.vgabuf.tell()
+            attr = ord(self.vgabuf.read_byte())
+            if attr == 0:
+                self.vgabuf.seek(aa)
+                self.vgabuf.write(chr(self.foreground|self.background<<4))
+    def bsave(self, filename):
+        self.flatten()
+        with open(filename, 'wb') as f:
+            f.write(chr(0xfd))
+            f.write(pack('HHH', 0xb800, 0x0000, 0x0fa0))
+            self.vgabuf.seek(0)
+            f.write(self.vgabuf.read(4000))
     def render_cursor(self):
         if self.cursor_klass:
             self.cursor = self.cursor_klass(self, self.VGA_PALETTE[self.foreground], self.VGA_PALETTE[self.background])
@@ -137,11 +170,11 @@ class VGAConsole(object):
         self.vgabuf.seek(0)
         for y in range(0,25):
             for x in range(0,80):
+                c = self.vgabuf.read_byte()
                 attr = ord(self.vgabuf.read_byte())
                 fg,bg = self.foreground,self.background
                 if attr > 0:
                     fg,bg = attr&0xf, (attr&0xf0)>>4
-                c = self.vgabuf.read_byte()
                 if ord(c) > 0:
                     self.screen.blit(self.font.render(c,0,self.VGA_PALETTE[fg],self.VGA_PALETTE[bg]), (x*8,y*16))
         self.draw_mouse()
@@ -166,7 +199,7 @@ class VGAConsole(object):
             if self.pos[0] > 24 or self.pos[1] > 79:
                 self.pos = [row,col]
         self.vgabuf.seek((80*row+col)*2)
-        self.vgabuf.write(chr(fg|bg<<4)+chr(c))
+        self.vgabuf.write(chr(c)+chr(fg|bg<<4))
     def type(self, c):
         if c == 10:
             self.pos[1] = self.wrap[1]
@@ -284,10 +317,10 @@ def main():
             if e.type == QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == MOUSEBUTTONUP:
-                oldpos = self.pos
-                self.clear_window(9, 9, 9, 33)
-                self.pos = oldpos
+            elif e.type == MOUSEBUTTONUP:
+                oldpos = vga.pos
+                vga.clear_window(9, 9, 9, 33)
+                vga.pos = oldpos
             else:
                 vga.handle_event(e)
         vga.draw()

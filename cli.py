@@ -76,6 +76,14 @@ class CLI(cmd.Cmd):
         p = subprocess.Popen(s, stdout=subprocess.PIPE)
         out = p.communicate()
         self.stdout.write(out[0])
+    def do_bload(self, args):
+        """ Perfoems a bload operation. """
+        if args != '':
+            self.console.bload(args)
+    def do_bsave(self, args):
+        """ Performs a bsave operation. """
+        if args != '':
+            self.console.bsave(args)
 
 class ConsoleApp(vgaconsole.VGAConsole):
     cursor_klass = vgaconsole.AnimatedCursor
