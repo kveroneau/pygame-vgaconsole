@@ -5,7 +5,47 @@ from struct import unpack
 
 clock = pygame.time.Clock()
 
+class Cursor(object):
+    frames = None
+    animated = False
+    rate = 3
+    def __init__(self, console, fg, bg):
+        self.console = console
+        self.cframe, self.cframes = 0, []
+        for c in self.frames:
+            self.cframes.append(console.font.render(c,0,fg,bg))
+        if len(self.cframes) > 1:
+            self.animated = True
+    def draw(self, row=None, col=None):
+        if row is None:
+            pos = (self.console.pos[1]*8,self.console.pos[0]*16)
+        else:
+            pos = (col*8, row*16)
+        if self.animated:
+            frame = self.cframe/self.rate%len(self.cframes)
+            self.cframe+=1
+        else:
+            frame = 0
+        self.console.screen.blit(self.cframes[frame], pos)
+        self.cframe+=1
+
+class AnimatedCursor(Cursor):
+    frames = ('|', '/', '-', '\\',)
+
+class TraditionalCursor(Cursor):
+    frames = ('_', ' ',)
+    rate = 10
+
+class BlockCursor(Cursor):
+    frames = (chr(219),)
+
+class BlinkCursor(Cursor):
+    frames = (chr(219), ' ',)
+    rate = 10
+
 class VGAConsole(object):
+    cursor_klass = None
+    mcursor_klass = None
     def __init__(self, surface=None, pos=(0,0)):
         self.surface = surface
         self.blitpos = pos
@@ -15,17 +55,21 @@ class VGAConsole(object):
             pygame.font.init()
         self.screen = pygame.surface.Surface((640,400),0,8)
         self.font = pygame.font.Font('VGA.ttf', 16)
-        self.cursor = self.font.render(chr(219),0,self.VGA_PALETTE[7])
         pygame.mouse.set_visible(False)
         self.pos = [0,0]
         self.foreground = 15
         self.background = 1
         self.shift = False
-        self.cframe = 0
-        self.cframes = []
         self.stack = []
-        for c in ('|', '/', '-', '\\',):
-            self.cframes.append(self.font.render(c,0,self.VGA_PALETTE[self.foreground],self.VGA_PALETTE[self.background]))
+        self.ibuffer = ''
+        self.render_cursor()
+        self.render_mcursor()
+    def render_cursor(self):
+        if self.cursor_klass:
+            self.cursor = self.cursor_klass(self, self.VGA_PALETTE[self.foreground], self.VGA_PALETTE[self.background])
+    def render_mcursor(self):
+        if self.mcursor_klass:
+            self.mcursor = self.mcursor_klass(self, self.VGA_PALETTE[self.foreground], self.VGA_PALETTE[self.background])
     def get_surface(self):
         return self.screen
     def set_color(self, fg=None, bg=None):
@@ -54,7 +98,8 @@ class VGAConsole(object):
                 if ord(c) > 0:
                     self.screen.blit(self.font.render(c,0,self.VGA_PALETTE[fg],self.VGA_PALETTE[bg]), (x*8,y*16))
         self.draw_mouse()
-        self.draw_cursor()
+        if self.cursor_klass:
+            self.cursor.draw()
         if self.surface:
             self.surface.blit(self.screen, self.blitpos)
     def setxy(self, row, col, c, fg=None, bg=None):
@@ -124,11 +169,8 @@ class VGAConsole(object):
         x,y = pygame.mouse.get_pos()
         return (y/16, x/8)
     def draw_mouse(self):
-        row,col = self.mousepos()
-        self.screen.blit(self.cursor, (col*8,row*16))
-    def draw_cursor(self):
-        self.screen.blit(self.cframes[self.cframe/3%4], (self.pos[1]*8,self.pos[0]*16))
-        self.cframe+=1
+        if self.mcursor_klass:
+            self.mcursor.draw(*self.mousepos())
     def handle_event(self, event):
         if event.type == MOUSEBUTTONUP:
             oldpos = self.pos
@@ -150,6 +192,8 @@ class VGAConsole(object):
                 self.shift = False
 
 class ExampleApp(VGAConsole):
+    cursor_klass = AnimatedCursor
+    mcursor_klass = BlockCursor
     def draw_ascii(self):
         row, col = 10,10
         for c in range(0,255):
