@@ -43,6 +43,47 @@ class BlinkCursor(Cursor):
     frames = (chr(219), ' ',)
     rate = 10
 
+class TextBuffer(object):
+    def __init__(self, console):
+        self.console = console
+        self.ibuffer = ''
+        self.obuffer = ''
+        self.input_active = False
+        self.pos = [0,0]
+    def write(self, data):
+        self.obuffer+=data
+        if not self.input_active:
+            self.console.write(self.obuffer)
+            self.obuffer = ''
+    def read(self, size=None):
+        if size is None:
+            data = self.ibuffer
+            self.ibuffer = ''
+        else:
+            if size>len(self.ibuffer):
+                return self.read()
+            data = self.ibuffer[:size]
+            self.ibuffer = self.ibuffer[size:]
+        return data
+    def input(self, c):
+        if c == 8:
+            if len(self.ibuffer) > 0 and self.pos[1]+len(self.ibuffer) > 0:
+                self.console.setxy(self.pos[0], self.pos[1]+len(self.ibuffer), 0)
+                self.ibuffer = self.ibuffer[:-1]
+        elif c == 27:
+            pygame.quit()
+            sys.exit()
+        else:
+            self.ibuffer += chr(c)
+    def setpos(self, row=None, col=None):
+        if row is None:
+            self.pos = self.console.pos
+        else:
+            self.pos = [row,col]
+    def draw(self):
+        self.console.setpos(*self.pos)
+        self.console.write(self.ibuffer)
+
 class VGAConsole(object):
     cursor_klass = None
     mcursor_klass = None
@@ -64,6 +105,7 @@ class VGAConsole(object):
         self.ibuffer = ''
         self.render_cursor()
         self.render_mcursor()
+        self.stdio = TextBuffer(self)
     def render_cursor(self):
         if self.cursor_klass:
             self.cursor = self.cursor_klass(self, self.VGA_PALETTE[self.foreground], self.VGA_PALETTE[self.background])
@@ -87,6 +129,7 @@ class VGAConsole(object):
                 self.US_SHIFTMAP[k] = v        
     def draw(self):
         self.screen.fill(self.VGA_PALETTE[self.background])
+        self.stdio.draw()
         self.vgabuf.seek(0)
         for y in range(0,25):
             for x in range(0,80):
@@ -110,18 +153,11 @@ class VGAConsole(object):
         self.vgabuf.seek((80*row+col)*2)
         self.vgabuf.write(chr(fg|bg<<4)+chr(c))
     def type(self, c):
-        if c == 13:
+        if c == 10:
             self.pos[1] = 0
             self.pos[0] +=1
-        elif c == 8:
-            if self.pos[1] > 0:
-                self.pos[1] -=1
-                self.setxy(self.pos[0], self.pos[1], 0)
         elif c == 9:
             self.pos[1] += 8
-        elif c == 27:
-            pygame.quit()
-            sys.exit()
         else:
             self.setxy(self.pos[0], self.pos[1], c)
             self.pos[1] +=1
@@ -179,14 +215,19 @@ class VGAConsole(object):
         elif event.type == KEYDOWN:
             if event.key == K_LSHIFT or event.key == K_RSHIFT:
                 self.shift = True
-            if event.key > 0 and event.key < 256:
+            if event.key == 13:
+                print "Capture this text in your own code: %s" % self.stdio.read()
+                self.pos[0] +=1
+                self.pos[1] = 0
+                self.stdio.setpos(*self.pos)
+            elif event.key > 0 and event.key < 256:
                 c = event.key
                 if self.shift:
                     if c > 96 and c < 123:
                         c-=32
                     elif c in self.US_SHIFTMAP.keys():
                         c = self.US_SHIFTMAP[c]
-                self.type(c)
+                self.stdio.input(c)
         elif event.type == KEYUP:
             if event.key == K_LSHIFT or event.key == K_RSHIFT:
                 self.shift = False
@@ -206,7 +247,8 @@ class ExampleApp(VGAConsole):
         self.draw_ascii()
         self.draw_window(9,9,9,33, ' ASCII ', 1, 15)
         self.setpos(0, 0)
-        self.write('Welcome to VGAConsole!\rC:\>')
+        self.write('Welcome to VGAConsole!\nC:\>')
+        self.stdio.setpos()
 
 def main():
     pygame.display.init()
