@@ -99,11 +99,12 @@ class VGAConsole(object):
         self.font = pygame.font.Font('VGA.ttf', 16)
         pygame.mouse.set_visible(False)
         self.pos = [0,0]
+        self.winsize = [25,80]
+        self.wrap = [0,0]
         self.foreground = 15
         self.background = 1
         self.shift = False
         self.stack = []
-        self.ibuffer = ''
         self.render_cursor()
         self.render_mcursor()
         self.stdio = TextBuffer(self)
@@ -150,7 +151,7 @@ class VGAConsole(object):
             self.surface.blit(self.screen, self.blitpos)
     def clear_line(self, row):
         self.vgabuf.seek(80*row*2)
-        self.vgabuf.write('\0'*80)
+        self.vgabuf.write('\0'*(80*2))
     def scroll_console(self):
         self.vgabuf.move(0, 80*2, 80*24*2)
         self.clear_line(24)
@@ -168,15 +169,15 @@ class VGAConsole(object):
         self.vgabuf.write(chr(fg|bg<<4)+chr(c))
     def type(self, c):
         if c == 10:
-            self.pos[1] = 0
+            self.pos[1] = self.wrap[1]
             self.pos[0] +=1
         elif c == 9:
             self.pos[1] += 8
         else:
             self.setxy(self.pos[0], self.pos[1], c)
             self.pos[1] +=1
-        if self.pos[1] > 80:
-            self.pos[1] = 0
+        if self.pos[1] > self.winsize[1]+self.wrap[1]:
+            self.pos[1] = self.wrap[1]
             self.pos[0] += 1
     def write(self, text):
         for c in text:
@@ -185,7 +186,7 @@ class VGAConsole(object):
         self.stack.append(t)
     def pop(self):
         return self.stack.pop()
-    def draw_window(self, row, col, height, width, title=None, fg=None, bg=None):
+    def draw_window(self, row, col, height, width, title=None, fg=None, bg=None, wrap=False):
         self.push((self.foreground,self.background))
         if fg is not None:
             self.foreground = fg
@@ -203,6 +204,14 @@ class VGAConsole(object):
             self.setpos(row, col+((width/2)-len(title)/2))
             self.write(title)
         self.foreground,self.background = self.pop()
+        if wrap:
+            self.viewport([height-2,width-2,row+1,col+1])
+    def viewport(self, view=None):
+        if view is None:
+            self.winsize, self.wrap = [25,80], [0,0]
+        else:
+            self.winsize, self.wrap = [view[0], view[1]], [view[2], view[3]]
+        self.setpos(*self.wrap)
     def clear_window(self, row, col, height, width, bg=None):
         if bg is None:
             bg = self.background
@@ -222,11 +231,7 @@ class VGAConsole(object):
         if self.mcursor_klass:
             self.mcursor.draw(*self.mousepos())
     def handle_event(self, event):
-        if event.type == MOUSEBUTTONUP:
-            oldpos = self.pos
-            self.clear_window(9, 9, 9, 33)
-            self.pos = oldpos
-        elif event.type == KEYDOWN:
+        if event.type == KEYDOWN:
             if event.key == K_LSHIFT or event.key == K_RSHIFT:
                 self.shift = True
             if event.key == 13:
@@ -279,6 +284,10 @@ def main():
             if e.type == QUIT:
                 pygame.quit()
                 sys.exit()
+            elif event.type == MOUSEBUTTONUP:
+                oldpos = self.pos
+                self.clear_window(9, 9, 9, 33)
+                self.pos = oldpos
             else:
                 vga.handle_event(e)
         vga.draw()

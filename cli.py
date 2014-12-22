@@ -1,5 +1,4 @@
-import vgaconsole, cmd, pygame, sys
-import shlex
+import vgaconsole, cmd, pygame, sys, shlex, subprocess
 
 class CLI(cmd.Cmd):
     """
@@ -71,6 +70,12 @@ class CLI(cmd.Cmd):
             self.stdout.write(' ** Please use values between 0 and 15.\n')
             return
         self.console.set_color(fg,bg)
+    def do_shell(self, args):
+        """ Example subprocess. """
+        s = shlex.split(args)
+        p = subprocess.Popen(s, stdout=subprocess.PIPE)
+        out = p.communicate()
+        self.stdout.write(out[0])
 
 class ConsoleApp(vgaconsole.VGAConsole):
     cursor_klass = vgaconsole.AnimatedCursor
