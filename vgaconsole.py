@@ -116,10 +116,12 @@ class VGAConsole(object):
     def get_surface(self):
         return self.screen
     def set_color(self, fg=None, bg=None):
-        if fg:
+        if fg is not None:
             self.foreground = fg
-        if bg:
+        if bg is not None:
             self.background = bg
+        self.render_cursor()
+        self.render_mcursor()
     def load_data(self):
         self.VGA_PALETTE, self.US_SHIFTMAP = [], {}
         with open('VGA.bin','rb') as f:
@@ -146,11 +148,22 @@ class VGAConsole(object):
             self.cursor.draw()
         if self.surface:
             self.surface.blit(self.screen, self.blitpos)
+    def clear_line(self, row):
+        self.vgabuf.seek(80*row*2)
+        self.vgabuf.write('\0'*80)
+    def scroll_console(self):
+        self.vgabuf.move(0, 80*2, 80*24*2)
+        self.clear_line(24)
     def setxy(self, row, col, c, fg=None, bg=None):
         if fg is None:
             fg = self.foreground
         if bg is None:
             bg = self.background
+        if row > 24 or col > 79:
+            self.scroll_console()
+            row, col = 24,0
+            if self.pos[0] > 24 or self.pos[1] > 79:
+                self.pos = [row,col]
         self.vgabuf.seek((80*row+col)*2)
         self.vgabuf.write(chr(fg|bg<<4)+chr(c))
     def type(self, c):

@@ -1,4 +1,5 @@
 import vgaconsole, cmd, pygame, sys
+import shlex
 
 class CLI(cmd.Cmd):
     """
@@ -55,6 +56,21 @@ class CLI(cmd.Cmd):
             if isinstance(o,type) and issubclass(o, vgaconsole.Cursor):
                 cursors.append(klass)
         self.columnize(cursors)
+    def do_cls(self, args):
+        """ Clears the console. """
+        self.console.clear_screen()
+    def do_color(self, args):
+        """ Changes both the foreground and background colors. """
+        s = shlex.split(args)
+        try:
+            fg, bg = int(s[0]), int(s[1])
+        except:
+            self.stdout.write(' ** Please ensure you only use integers.\n')
+            return
+        if fg > 15 or bg > 15:
+            self.stdout.write(' ** Please use values between 0 and 15.\n')
+            return
+        self.console.set_color(fg,bg)
 
 class ConsoleApp(vgaconsole.VGAConsole):
     cursor_klass = vgaconsole.AnimatedCursor
