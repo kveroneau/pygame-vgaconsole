@@ -16,6 +16,9 @@ class Cursor(object):
             self.cframes.append(console.font.render(c,0,fg,bg))
         if len(self.cframes) > 1:
             self.animated = True
+    def set_colorkey(self, color=0):
+        for c in range(0,len(self.cframes)):
+            self.cframes[c].set_colorkey(color)
     def draw(self, row=None, col=None):
         if row is None:
             pos = (self.console.pos[1]*8,self.console.pos[0]*16)
@@ -245,12 +248,12 @@ class VGAConsole(object):
         else:
             self.winsize, self.wrap = [view[0], view[1]], [view[2], view[3]]
         self.setpos(*self.wrap)
-    def clear_window(self, row, col, height, width, bg=None):
+    def clear_window(self, row, col, height, width, bg=None, c=0):
         if bg is None:
             bg = self.background
         for y in range(row, row+height+1):
             self.setpos(y, col)
-            self.write(chr(0)*(width+1))
+            self.write(chr(c)*(width+1))
     def setpos(self, row, col):
         self.pos = [row, col]
     def clear_screen(self):
@@ -263,6 +266,12 @@ class VGAConsole(object):
     def draw_mouse(self):
         if self.mcursor_klass:
             self.mcursor.draw(*self.mousepos())
+    def set_mcursor(self, klass):
+        self.mcursor_klass = klass
+        self.render_mcursor()
+    def set_cursor(self, klass):
+        self.cursor_klass = klass
+        self.render_cursor()
     def handle_event(self, event):
         if event.type == KEYDOWN:
             if event.key == K_LSHIFT or event.key == K_RSHIFT:
