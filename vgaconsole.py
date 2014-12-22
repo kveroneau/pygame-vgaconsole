@@ -55,6 +55,7 @@ class TextBuffer(object):
         if not self.input_active:
             self.console.write(self.obuffer)
             self.obuffer = ''
+            self.setpos()
     def read(self, size=None):
         if size is None:
             data = self.ibuffer
