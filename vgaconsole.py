@@ -86,7 +86,7 @@ class TextBuffer(object):
             self.pos = [row,col]
     def draw(self):
         self.console.setpos(*self.pos)
-        self.console.write(self.ibuffer)
+        self.console.write(self.console.render_input(self.ibuffer))
 
 class VGAConsole(object):
     cursor_klass = None
@@ -107,6 +107,7 @@ class VGAConsole(object):
         self.foreground = 15
         self.background = 1
         self.shift = False
+        self.mask_input = None
         self.stack = []
         self.render_cursor()
         self.render_mcursor()
@@ -278,6 +279,10 @@ class VGAConsole(object):
     def set_cursor(self, klass):
         self.cursor_klass = klass
         self.render_cursor()
+    def render_input(self, text):
+        if self.mask_input:
+            return self.mask_input[0]*len(text)
+        return text
     def handle_event(self, event):
         if event.type == KEYDOWN:
             if event.key == K_LSHIFT or event.key == K_RSHIFT:
